@@ -6,8 +6,8 @@ pipeline {
   }
 
   environment {
-    IMAGE_TAG = "yourdockerhubuser/tic-tac-toe:${BUILD_NUMBER}"
-    DEPLOY_REPO = "https://github.com/youruser/argocd-k8s-yamls.git"
+    IMAGE_TAG = "ramganesh123/tic-tac-toe:${BUILD_NUMBER}"
+    DEPLOY_REPO = "https://github.com/RamGanesh123/timepass2/argocd-k8s-yamls.git"
     DEPLOY_PATH = "deployment"
   }
 
@@ -15,7 +15,7 @@ pipeline {
 
     stage('Checkout App') {
       steps {
-        git url: 'https://github.com/youruser/tic-tac-toe.git', branch: 'main'
+        git url: 'https://github.com/RamGanesh123/tic-tac-toe.git', branch: 'main'
       }
     }
 
