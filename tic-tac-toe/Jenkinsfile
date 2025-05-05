@@ -1,0 +1,75 @@
+pipeline {
+  agent {
+    docker {
+      image 'node:16-alpine'
+    }
+  }
+
+  environment {
+    IMAGE_TAG = "yourdockerhubuser/tic-tac-toe:${BUILD_NUMBER}"
+    DEPLOY_REPO = "https://github.com/youruser/argocd-k8s-yamls.git"
+    DEPLOY_PATH = "deployment"
+  }
+
+  stages {
+
+    stage('Checkout App') {
+      steps {
+        git url: 'https://github.com/youruser/tic-tac-toe.git', branch: 'main'
+      }
+    }
+
+    stage('Build App') {
+      steps {
+        sh 'npm install'
+        sh 'npm run build'
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+        sh "docker build -t ${IMAGE_TAG} ."
+      }
+    }
+
+    stage('Push Docker Image') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+          sh """
+            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+            docker push ${IMAGE_TAG}
+          """
+        }
+      }
+    }
+
+    stage('Update K8s Manifests for ArgoCD') {
+      steps {
+        sh "git clone ${DEPLOY_REPO}"
+        dir('argocd-k8s-yamls') {
+          sh "sed -i 's|image: .*|image: ${IMAGE_TAG}|' ${DEPLOY_PATH}/deployment.yaml"
+          
+          withCredentials([usernamePassword(credentialsId: 'github-creds', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+            sh """
+              git config user.name "Jenkins CI"
+              git config user.email "ci@example.com"
+              git add ${DEPLOY_PATH}/deployment.yaml
+              git commit -m 'Update image to ${IMAGE_TAG}'
+              git push https://${GIT_USER}:${GIT_PASS}@github.com/youruser/argocd-k8s-yamls.git
+            """
+          }
+        }
+      }
+    }
+
+  }
+
+  post {
+    success {
+      echo "✅ App deployed. ArgoCD will auto-sync it to the cluster."
+    }
+    failure {
+      echo "❌ Deployment failed."
+    }
+  }
+}
